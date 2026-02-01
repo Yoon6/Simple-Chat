@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:paddingTop="12dp"
+    android:paddingBottom="12dp">
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:background="#A0A0A0"
+        android:layout_marginEnd="8dp" />
+
+    <TextView
+        android:id="@+id/textSystem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="System Message"
+        android:textColor="#555555"
+        android:textSize="12sp"
+        android:background="#AACCEE"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:backgroundTint="#00FF0000" /> <!-- Transparent Tint trick if needed, or just remove background -->
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:background="#A0A0A0"
+        android:layout_marginStart="8dp" />
+
+</LinearLayout>
