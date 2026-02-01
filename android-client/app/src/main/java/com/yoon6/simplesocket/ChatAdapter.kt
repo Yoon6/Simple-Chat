@@ -6,15 +6,6 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-// Data Model
-data class ChatMessage(val content: String, val type: Int) {
-    companion object {
-        const val TYPE_ME = 0
-        const val TYPE_OTHER = 1
-        const val TYPE_SYSTEM = 2
-    }
-}
-
 class ChatAdapter(private val messages: MutableList<ChatMessage>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     class MeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -31,16 +22,16 @@ class ChatAdapter(private val messages: MutableList<ChatMessage>) : RecyclerView
     }
 
     override fun getItemViewType(position: Int): Int {
-        return messages[position].type
+        return messages[position].type.ordinal
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
-            ChatMessage.TYPE_ME -> {
+            MessageType.ME.ordinal -> {
                 MeViewHolder(inflater.inflate(R.layout.item_chat_me, parent, false))
             }
-            ChatMessage.TYPE_SYSTEM -> {
+            MessageType.SYSTEM.ordinal -> {
                 SystemViewHolder(inflater.inflate(R.layout.item_chat_system, parent, false))
             }
             else -> {
@@ -53,16 +44,14 @@ class ChatAdapter(private val messages: MutableList<ChatMessage>) : RecyclerView
         val msg = messages[position]
         when (holder) {
             is MeViewHolder -> {
-                holder.textView.text = msg.content
+                holder.textView.text = msg.message
             }
             is OtherViewHolder -> {
-                holder.textView.text = msg.content
-                // holder.nameView.text = "Friend" // Default from XML is fine
+                holder.textView.text = msg.message
+                holder.nameView.text = "Client ${msg.client}"
             }
             is SystemViewHolder -> {
-                // Strip "[SYSTEM] " if present for cleaner look
-                val cleanText = msg.content.replace("[SYSTEM]", "").trim()
-                holder.textView.text = cleanText
+                holder.textView.text = msg.message
             }
         }
     }

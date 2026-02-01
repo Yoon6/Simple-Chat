@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Message Object",
+    "type": "object",
+    "properties": {
+        "client": {
+            "type": "integer",
+            "description": "클라이언트 식별자 (예: -1)"
+        },
+        "type": {
+            "type": "string",
+            "enum": [
+                "system",
+                "client"
+            ],
+            "description": "메시지 유형 (system 또는 client)"
+        },
+        "message": {
+            "type": "string",
+            "description": "메시지 본문 내용"
+        }
+    },
+    "required": [
+        "client",
+        "type",
+        "message"
+    ]
+}

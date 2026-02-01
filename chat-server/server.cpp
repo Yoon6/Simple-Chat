@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include "chatPacket.h"
 
 #define PORT 12345
 #define BUFFER_SIZE 2048
@@ -17,6 +18,10 @@ int main() {
     int opt = 1;
     socklen_t addrlen = sizeof(address);
     char buffer[BUFFER_SIZE];
+
+    auto joinMsg = ChatPacket(-1, ChatType::SYSTEM, "New user joined").toJsonString();
+    auto welcomeMsg = ChatPacket(-1, ChatType::SYSTEM, "Welcome to the Simple Chat!").toJsonString();
+    auto leaveMsg = ChatPacket(-1, ChatType::SYSTEM, "User left").toJsonString();
 
     // Create socket file descriptor
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -76,7 +81,6 @@ int main() {
                 std::cout << "New connection: " << inet_ntoa(address.sin_addr) << ":" << ntohs(address.sin_port) << std::endl;
                 
                 // Broadcast new user joined
-                std::string joinMsg = "[SYSTEM] New user joined<EOM>\n";
                 for(int existing_sd : client_sockets) {
                     send(existing_sd, joinMsg.c_str(), joinMsg.length(), 0);
                 }
@@ -84,8 +88,7 @@ int main() {
                 client_sockets.push_back(client_fd);
                 
                 // Optional: Send welcome message
-                std::string welcome = "[SYSTEM] Welcome to the chat server!<EOM>\n";
-                send(client_fd, welcome.c_str(), welcome.length(), 0);
+                send(client_fd, welcomeMsg.c_str(), welcomeMsg.length(), 0);
             }
         }
 
@@ -103,7 +106,6 @@ int main() {
                     it = client_sockets.erase(it);
                     
                     // Broadcast disconnection
-                    std::string leaveMsg = "[SYSTEM]  User left<EOM>\n";
                     for(int other_sd : client_sockets) {
                         send(other_sd, leaveMsg.c_str(), leaveMsg.length(), 0);
                     }
@@ -111,12 +113,13 @@ int main() {
                 } else {
                     buffer[valread] = '\0';
                     std::string message(buffer);
+                    auto chatPacket = ChatPacket(sd, ChatType::CLIENT, message).toJsonString();
 
-                    std::cout << "client[" << sd << "] : " << message << '\n';
+                    std::cout << chatPacket << '\n';
                     // Broadcast to other clients
                     for (int other_sd : client_sockets) {
                         if (other_sd != sd) {
-                            send(other_sd, message.c_str(), message.length(), 0);
+                            send(other_sd, chatPacket.c_str(), chatPacket.length(), 0);
                         }
                     }
                 }

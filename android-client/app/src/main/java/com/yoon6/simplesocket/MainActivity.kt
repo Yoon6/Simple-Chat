@@ -17,7 +17,24 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
 import java.net.Socket
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
 
+object MessageParser {
+    private val jsonConfig = Json {
+        ignoreUnknownKeys = true // 스키마 외에 추가 필드가 있어도 에러 방지
+        coerceInputValues = true // 타입이 살짝 달라도 유연하게 처리
+    }
+
+    fun parse(jsonString: String): ChatMessage? {
+        return try {
+            jsonConfig.decodeFromString<ChatMessage>(jsonString)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+}
 class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: ChatAdapter
@@ -102,37 +119,23 @@ class MainActivity : AppCompatActivity() {
 
                 Log.d("ChatClient", "Connected!")
 
-                val messageBuffer = StringBuilder()
                 // Read Loop
                 while (isActive) {
                     val line = reader?.readLine() ?: break
                     Log.d("ChatClient", "Received: $line")
 
-                    if (line.endsWith("<EOM>")) {
-                        val realLine = line.replace("<EOM>", "")
-                        messageBuffer.append(realLine)
-                        val fullMessage = messageBuffer.toString()
-                        messageBuffer.clear()
+                    val message = MessageParser.parse(line) ?: break
 
-                        withContext(Dispatchers.Main) {
-                            // Logic to determine message type
-                            val type = if (fullMessage.startsWith("[SYSTEM]")) {
-                                ChatMessage.TYPE_SYSTEM
-                            } else {
-                                ChatMessage.TYPE_OTHER
-                            }
-
-                            adapter.addMessage(ChatMessage(fullMessage, type))
-                            findViewById<RecyclerView>(R.id.recyclerView).scrollToPosition(messages.size - 0)
-                        }
-                    } else {
-                        messageBuffer.append(line).append("\n")
+                    withContext(Dispatchers.Main) {
+                        adapter.addMessage(message)
+                        findViewById<RecyclerView>(R.id.recyclerView).scrollToPosition(messages.size - 0)
                     }
                 }
             } catch (e: Exception) {
                 Log.e("ChatClient", "Connection Error", e)
+                val errorMsg = ChatMessage(-1, MessageType.SYSTEM, "Error: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    adapter.addMessage(ChatMessage("Error: ${e.message}", ChatMessage.TYPE_SYSTEM))
+                    adapter.addMessage(errorMsg)
                 }
             }
         }
@@ -141,10 +144,12 @@ class MainActivity : AppCompatActivity() {
     private fun sendMessage(message: String) {
         scope.launch {
             try {
-                writer?.println("$message<EOM>")
+                writer?.print(message)
+                writer?.flush()
                 // Add local message as TYPE_ME
                 withContext(Dispatchers.Main) {
-                    adapter.addMessage(ChatMessage(message, ChatMessage.TYPE_ME))
+                    val message = ChatMessage(-1, MessageType.ME, message)
+                    adapter.addMessage(message)
                     findViewById<RecyclerView>(R.id.recyclerView).scrollToPosition(messages.size - 1)
                 }
             } catch (e: Exception) {
