@@ -39,26 +39,40 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: ChatAdapter
     private val messages = mutableListOf<ChatMessage>()
-    
+
     // Networking
     private var socket: Socket? = null
     private var writer: PrintWriter? = null
     private var reader: BufferedReader? = null
-    
+
     // Coroutine Scope
     private val scope = CoroutineScope(Dispatchers.IO + Job())
+    // Video
+    private val permissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.all { it.value }) {
+            startVideoCallActivity()
+        } else {
+            Log.e("MainActivity", "Permissions not granted")
+        }
+    }
+    
+    private fun startVideoCallActivity() {
+        val intent = android.content.Intent(this, VideoCallActivity::class.java)
+        startActivity(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // videoManager = VideoManager(this) // Removed
+
         val rootView = findViewById<View>(R.id.rootView)
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-
-            // 상태바와 내비게이션 바 높이만큼 Padding 설정
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
-
             insets
         }
         val inputContainer = findViewById<View>(R.id.inputContainer)
@@ -66,12 +80,9 @@ class MainActivity : AppCompatActivity() {
             val combinedInsets = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime()
             )
-            // 상태바와 내비게이션 바 높이만큼 Padding 설정
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, combinedInsets.bottom)
-
             insets
         }
-
 
         // Setup RecyclerView
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
@@ -81,6 +92,31 @@ class MainActivity : AppCompatActivity() {
 
         val editMessage = findViewById<EditText>(R.id.editMessage)
         val btnSend = findViewById<Button>(R.id.btnSend)
+        
+        // Menu Elements
+        val btnPlus = findViewById<View>(R.id.btnPlus)
+        val menuContainer = findViewById<View>(R.id.menuContainer)
+        val btnVideoCall = findViewById<View>(R.id.btnVideoCall)
+
+        // Toggle Menu
+        btnPlus.setOnClickListener {
+            if (menuContainer.visibility == View.VISIBLE) {
+                menuContainer.visibility = View.GONE
+            } else {
+                menuContainer.visibility = View.VISIBLE
+            }
+        }
+
+        // Start Video Call
+        btnVideoCall.setOnClickListener {
+            menuContainer.visibility = View.GONE
+            permissionLauncher.launch(
+                arrayOf(
+                    android.Manifest.permission.CAMERA,
+                    android.Manifest.permission.RECORD_AUDIO
+                )
+            )
+        }
 
         // 1. TextWatcher for Button Visibility
         editMessage.addTextChangedListener(object : TextWatcher {
@@ -107,13 +143,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    
+    // remove startVideo() function entirely
+
 
     private fun connectToServer() {
         scope.launch {
             try {
                 // 172.30.1.86 is your Windows PC's IP address on the local network
                 Log.d("ChatClient", "Connecting to server...")
-                socket = Socket("172.30.1.88", 12345)
+                socket = Socket("172.30.1.86", 12345)
                 writer = PrintWriter(socket!!.getOutputStream(), true)
                 reader = BufferedReader(InputStreamReader(socket!!.getInputStream()))
 

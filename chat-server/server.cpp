@@ -7,13 +7,16 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <chrono> // For timing
+#include <fstream> // For file I/O
+#include <iomanip> // For setprecision
 #include "chatPacket.h"
 
-#define PORT 12345
-#define BUFFER_SIZE 2048
+constexpr const int PORT = 12345;
+constexpr const int BUFFER_SIZE = 65535; // Increased to max UDP packet size for video
 
 int main() {
-    int server_fd, client_fd;
+    int server_fd, client_fd, udp_fd;
     struct sockaddr_in address;
     int opt = 1;
     socklen_t addrlen = sizeof(address);
@@ -53,27 +56,119 @@ int main() {
 
     std::cout << "Chat Server started on port " << PORT << "..." << std::endl;
 
+    // Create UDP socket
+    if ((udp_fd = socket(AF_INET, SOCK_DGRAM, 0)) == 0) {
+        perror("socket failed");
+        return 1;
+    }
+
+    // Bind UDP socket
+    if (bind(udp_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        return 1;
+    }
+
     fd_set readfds;
     std::vector<int> client_sockets;
+    std::vector<struct sockaddr_in> udp_clients; // List of known UDP clients
+
+    // Performance Monitoring Variables
+    long long packetCount = 0;
+    long long byteCount = 0;
+    auto lastCheckTime = std::chrono::steady_clock::now();
+    std::ofstream statsFile("server_stats.csv", std::ios::app);
+    if (statsFile.is_open()) {
+        statsFile << "Timestamp,PPS,Mbps" << std::endl; // Header
+    } 
 
     while (true) {
+        // --- Periodic Performance Check ---
+        auto currentTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed = currentTime - lastCheckTime;
+        if (elapsed.count() >= 1.0) {
+            double pps = packetCount / elapsed.count();
+            double mbps = (byteCount * 8.0) / (1000000.0 * elapsed.count());
+            
+            // Console Output
+            std::cout << "[Stats] PPS: " << std::fixed << std::setprecision(1) << pps 
+                      << ", Bandwidth: " << std::setprecision(2) << mbps << " Mbps" << std::endl;
+            
+            // CSV Output
+            if (statsFile.is_open()) {
+                auto now = std::chrono::system_clock::now();
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                statsFile << now_c << "," << pps << "," << mbps << std::endl;
+                statsFile.flush(); // Ensure write immediately
+            }
+
+            // Reset
+            packetCount = 0;
+            byteCount = 0;
+            lastCheckTime = currentTime;
+        }
+        // ----------------------------------
+
         FD_ZERO(&readfds);
         FD_SET(server_fd, &readfds);
-        int max_sd = server_fd;
+        FD_SET(udp_fd, &readfds); // Add UDP socket to set
+        
+        int max_sd = std::max(server_fd, udp_fd); // Initialize max_sd
 
         for (int sd : client_sockets) {
             FD_SET(sd, &readfds);
             if (sd > max_sd) max_sd = sd;
         }
 
-        // Wait for an activity on one of the sockets
-        int activity = select(max_sd + 1, &readfds, NULL, NULL, NULL);
+        // Wait for an activity on one of the sockets (100ms timeout for stats update)
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 100000; // 100ms
+        int activity = select(max_sd + 1, &readfds, NULL, NULL, &timeout);
 
         if ((activity < 0) && (errno != EINTR)) {
             std::cout << "select error" << std::endl;
         }
 
-        // Incoming connection
+        // Handle UDP Activity (Video Data)
+        if (FD_ISSET(udp_fd, &readfds)) {
+            struct sockaddr_in client_addr;
+            socklen_t client_addr_len = sizeof(client_addr);
+            int len = recvfrom(udp_fd, buffer, BUFFER_SIZE, 0, (struct sockaddr*)&client_addr, &client_addr_len);
+
+            if (len > 0) {
+                // Update Stats
+                packetCount++;
+                byteCount += len;
+
+                // Check if this is a new UDP client
+                bool is_new = true;
+                for (const auto& existing_addr : udp_clients) {
+                    if (existing_addr.sin_addr.s_addr == client_addr.sin_addr.s_addr &&
+                        existing_addr.sin_port == client_addr.sin_port) {
+                        is_new = false;
+                        break;
+                    }
+                }
+
+                if (is_new) {
+                    udp_clients.push_back(client_addr);
+                    std::cout << "New UDP Client registered: " << inet_ntoa(client_addr.sin_addr) 
+                              << ":" << ntohs(client_addr.sin_port) << std::endl;
+                }
+
+                // Relay (Broadcast) to all OTHER clients
+                for (const auto& target_addr : udp_clients) {
+                    // Skip sender
+                    if (target_addr.sin_addr.s_addr == client_addr.sin_addr.s_addr &&
+                        target_addr.sin_port == client_addr.sin_port) {
+                        continue;
+                    }
+                    sendto(udp_fd, buffer, len, 0, (struct sockaddr*)&target_addr, sizeof(target_addr));
+                }
+            }
+        }
+
+        // Incoming connection (TCP)
         if (FD_ISSET(server_fd, &readfds)) {
             if ((client_fd = accept(server_fd, (struct sockaddr*)&address, &addrlen)) < 0) {
                 perror("accept");
