@@ -152,7 +152,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 // 172.30.1.86 is your Windows PC's IP address on the local network
                 Log.d("ChatClient", "Connecting to server...")
-                socket = Socket("172.30.1.86", 12345)
+                socket = Socket(resources.getString(R.string.server_ip), 12345)
                 writer = PrintWriter(socket!!.getOutputStream(), true)
                 reader = BufferedReader(InputStreamReader(socket!!.getInputStream()))
 

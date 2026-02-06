@@ -23,7 +23,7 @@ class VideoCallActivity : AppCompatActivity() {
         // Start Camera & Stream
         previewView.post {
             videoManager.startCamera(this, previewView)
-            videoManager.startStreaming("172.30.1.86", 12345, remoteView)
+            videoManager.startStreaming(resources.getString(R.string.server_ip), 12345, remoteView)
         }
 
         btnClose.setOnClickListener {
