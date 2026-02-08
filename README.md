@@ -67,9 +67,9 @@ WebSocketServer/
 ```
 
 ## 실행 화면
+https://github.com/user-attachments/assets/2e3b8113-4fd8-4e5e-be85-e4fb5e318b90
 
-**[스크린샷 1: 서버 구동 화면]**
-<!-- 여기에 서버 콘솔 실행 화면 스크린샷을 첨부하세요 -->
 
-**[스크린샷 2: 안드로이드 클라이언트 채팅/영상 화면]**
-<!-- 여기에 안드로이드 앱 실행 화면 스크린샷을 첨부하세요 -->
+## AI Assistant
+이 프로젝트는 **Antigravity**와 함께 작업되었습니다. 
+
